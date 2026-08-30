@@ -144,8 +144,20 @@ paths, not literal ones.
 setting, but firmware trees are not interchangeable — a ZSA board needs ZSA's
 fork, another board needs mainline, a third needs its own vendor fork. A tool
 that rewrites a global config per keyboard breaks the moment you own two
-keyboards. mappy passes `QMK_HOME` as an environment variable per invocation
-and never touches `qmk config`.
+keyboards.
+
+Instead mappy selects the tree with the **working directory**, which outranks
+every other mechanism. From `qmk_cli/helpers.py:find_qmk_firmware()`, the
+resolution order is:
+
+1. Walk up from the current working directory looking for a firmware tree
+2. `user.qmk_home` config setting
+3. `QMK_HOME` environment variable — only consulted if the config is unset
+4. `~/qmk_firmware`
+
+`QMK_HOME` cannot override a configured `user.qmk_home`, so it is useless for
+this. Setting `cmd.Dir` on the subprocess is both higher priority and free of
+global state.
 
 ### 6. Compile and flash
 
