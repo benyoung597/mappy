@@ -84,35 +84,47 @@ Not yet reported upstream.
 
 ### 5. Keep the layout in an external userspace
 
-The layout lives in its own git repo, not inside the firmware tree. QMK's
-external userspace exists for exactly this, and it means `~/qmk_zsa` stays a
-disposable build dependency you can delete and re-clone.
+The layout lives outside the firmware tree. QMK's external userspace exists for
+exactly this, and it means `~/qmk_zsa` stays a disposable build dependency you
+can delete and re-clone without losing anything.
 
-```sh
-mkdir -p ~/Development/qmk-userspace && cd ~/Development/qmk-userspace && git init -b main
+A userspace is any directory with a `qmk.json` at its root:
 
-cat > qmk.json <<'JSON'
+```
+<userspace>/
+  qmk.json
+  keyboards/zsa/moonlander/keymaps/vimster/{keymap.c,config.h,rules.mk,keymap.json}
+```
+
+```json
 {
     "userspace_version": "1.1",
     "build_targets": [
         ["zsa/moonlander/reva", "vimster"]
     ]
 }
-JSON
-
-mkdir -p keyboards/zsa/moonlander/keymaps
-mv <oryx-export>/zsa_moonlander_the-vimster_source \
-   keyboards/zsa/moonlander/keymaps/vimster
 ```
 
 `userspace_version` must be the string `"1.1"`; `build_targets` entries are
 `[keyboard, keymap]` tuples. Schema:
 `<qmk-tree>/data/schemas/user_repo_v1_1.jsonschema`.
 
+QMK does not care where the directory is, so it can be a stow package in an
+existing dotfiles repo rather than a repo of its own. This setup uses:
+
+```
+~/.dotfiles/qmk/dot-config/qmk-userspace/  ->  ~/.config/qmk-userspace/
+```
+
+**Do not stow `~/.config/qmk/`.** That is QMK's own config directory, and
+`qmk.ini` stores `user.overlay_dir` and `user.qmk_home` as absolute paths —
+machine-local by nature, and wrong on any other machine. The userspace is a
+sibling of it, not a child.
+
 Point QMK at both the userspace **and** the ZSA fork:
 
 ```sh
-qmk config user.overlay_dir="$HOME/Development/qmk-userspace"
+qmk config user.overlay_dir="$HOME/.config/qmk-userspace"
 qmk config user.qmk_home="$HOME/qmk_zsa"
 qmk userspace-doctor    # confirm both paths
 qmk userspace-compile
@@ -124,12 +136,16 @@ leave that pointing at mainline and you get
 `ValueError: Invalid keyboard: zsa/moonlander/reva`, because mainline has no
 revision subfolders.
 
-**mappy must not do it this way.** `user.qmk_home` is a single global setting,
-but firmware trees are not interchangeable — a ZSA board needs ZSA's fork,
-another board needs mainline, a third needs its own vendor fork. A tool that
-rewrites a global config per keyboard breaks the moment you own two keyboards.
-mappy passes `QMK_HOME` as an environment variable per invocation and never
-touches `qmk config`.
+QMK resolves a symlinked userspace to its real path — `userspace-doctor` will
+report the dotfiles location, not the `~/.config` symlink. Compare resolved
+paths, not literal ones.
+
+**mappy must not configure QMK this way.** `user.qmk_home` is a single global
+setting, but firmware trees are not interchangeable — a ZSA board needs ZSA's
+fork, another board needs mainline, a third needs its own vendor fork. A tool
+that rewrites a global config per keyboard breaks the moment you own two
+keyboards. mappy passes `QMK_HOME` as an environment variable per invocation
+and never touches `qmk config`.
 
 ### 6. Compile and flash
 
