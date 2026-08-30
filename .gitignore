@@ -1,0 +1,6 @@
+# Build output
+mappy
+
+# Go test/coverage artifacts
+*.test
+*.out
