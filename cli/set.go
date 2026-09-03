@@ -26,7 +26,7 @@ func set(args []string, stdout io.Writer) error {
 	flags.SetOutput(stdout)
 
 	qmkHome := flags.String("qmk-home", "", "firmware tree to run qmk in")
-	keyboard := flags.String("keyboard", "", "keyboard to read the keymap as, e.g. zsa/moonlander/reva")
+	keyboard := flags.String("keyboard", "", "keyboard to read the keymap as; detected from USB when unset")
 	name := flags.String("keymap", "default", "keymap name to report")
 	path := flags.String("file", "", "path to the keymap.c to edit")
 
@@ -36,10 +36,6 @@ func set(args []string, stdout io.Writer) error {
 		}
 
 		return err
-	}
-
-	if *keyboard == "" {
-		return errors.New("-keyboard is required")
 	}
 
 	if *path == "" {
@@ -56,6 +52,11 @@ func set(args []string, stdout io.Writer) error {
 		return err
 	}
 
+	board, err := resolveKeyboard(*keyboard)
+	if err != nil {
+		return err
+	}
+
 	// A keymap.c reached through a stowed symlink must be written where it
 	// really lives, or the rename replaces the link with a regular file.
 	target, err := filepath.EvalSymlinks(*path)
@@ -63,7 +64,7 @@ func set(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	keymap, err := readKeymap(*qmkHome, *keyboard, *name, target)
+	keymap, err := readKeymap(*qmkHome, board, *name, target)
 	if err != nil {
 		return err
 	}
@@ -88,7 +89,7 @@ func set(args []string, stdout io.Writer) error {
 
 	keymap.Layers[layer][index] = keycode
 
-	if err := writeKeymap(*qmkHome, *keyboard, *name, target, keymap, before, layer, index); err != nil {
+	if err := writeKeymap(*qmkHome, board, *name, target, keymap, before, layer, index); err != nil {
 		return err
 	}
 

@@ -148,9 +148,10 @@ func TestGetCommand(t *testing.T) {
 			want: "DUAL_FUNC_0\n",
 		},
 		{
-			name:    "keyboard is required",
+			// -keyboard is optional now, detected from USB, but the file is not
+			name:    "file is required",
 			args:    nil,
-			wantErr: "-keyboard is required",
+			wantErr: "-file is required",
 		},
 	}
 

@@ -61,7 +61,7 @@ func get(args []string, stdout io.Writer) error {
 	// Empty lets qmk resolve the tree itself, from the working directory and
 	// then user.qmk_home. Only worth setting when more than one tree exists.
 	qmkHome := flags.String("qmk-home", "", "firmware tree to run qmk in")
-	keyboard := flags.String("keyboard", "", "keyboard to read the keymap as, e.g. zsa/moonlander/reva")
+	keyboard := flags.String("keyboard", "", "keyboard to read the keymap as; detected from USB when unset")
 	// c2json does not validate this, it copies it into its "keymap" field.
 	name := flags.String("keymap", "default", "keymap name to report")
 	path := flags.String("file", "", "path to the keymap.c to read")
@@ -76,15 +76,16 @@ func get(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	if *keyboard == "" {
-		return errors.New("-keyboard is required")
-	}
-
 	if *path == "" {
 		return errors.New("-file is required")
 	}
 
-	keymap, err := readKeymap(*qmkHome, *keyboard, *name, *path)
+	target, err := resolveKeyboard(*keyboard)
+	if err != nil {
+		return err
+	}
+
+	keymap, err := readKeymap(*qmkHome, target, *name, *path)
 	if err != nil {
 		return err
 	}
