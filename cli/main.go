@@ -23,7 +23,8 @@ const usage = `usage: mappy <command> [flags] [args]
 
 commands:
   get [-json] [layer [index]]   print the keycodes in a keymap.c
-  help                  print this message
+  set <layer> <index> <keycode> replace one keycode in a keymap.c
+  help                          print this message
 
 run "mappy <command> -h" for the flags a command takes`
 
@@ -42,6 +43,8 @@ func run(args []string, stdout io.Writer) error {
 	switch args[0] {
 	case "get":
 		return get(args[1:], stdout)
+	case "set":
+		return set(args[1:], stdout)
 	case "help", "-h", "--help":
 		_, err := fmt.Fprintln(stdout, usage)
 

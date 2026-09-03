@@ -186,3 +186,235 @@ func TestGetCommand(t *testing.T) {
 		})
 	}
 }
+
+// Copies the fixture somewhere writable so a test can edit it.
+func tempKeymap(t *testing.T) string {
+	t.Helper()
+
+	src, err := os.ReadFile(fixtureKeymap)
+	if err != nil {
+		t.Fatalf("failed to read the fixture: %v", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "keymap.c")
+
+	if err := os.WriteFile(path, src, 0o644); err != nil {
+		t.Fatalf("failed to write the temp keymap: %v", err)
+	}
+
+	return path
+}
+
+func TestSetCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+
+		want    string
+		wantErr error
+	}{
+		{
+			name: "replaces one keycode",
+			args: []string{"0", "0", "KC_GRAVE"},
+			want: "0 0: KC_ESCAPE -> KC_GRAVE\n",
+		},
+		{
+			name: "a keycode holding a comma",
+			args: []string{"1", "0", "MT(MOD_LGUI, KC_A)"},
+			want: "1 0: KC_TRANSPARENT -> MT(MOD_LGUI, KC_A)\n",
+		},
+		{
+			// nothing to do, so nothing is written and nothing is said
+			name: "setting the keycode already there",
+			args: []string{"0", "40", "DUAL_FUNC_0"},
+			want: "",
+		},
+		{
+			name:    "layer out of range",
+			args:    []string{"9", "0", "KC_A"},
+			wantErr: errLayerRange,
+		},
+		{
+			name:    "index out of range",
+			args:    []string{"0", "99", "KC_A"},
+			wantErr: errIndexRange,
+		},
+		{
+			name:    "unbalanced parens are refused before anything is read",
+			args:    []string{"0", "0", "MT(MOD_LGUI, KC_A"},
+			wantErr: errKeycodeParens,
+		},
+		{
+			name:    "too few arguments",
+			args:    []string{"0", "0"},
+			wantErr: errWrongArgCount,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tempKeymap(t)
+
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("failed to read the temp keymap: %v", err)
+			}
+
+			args := append([]string{"set", "-keyboard", fixtureKeyboard, "-keymap", fixtureName, "-file", path}, tt.args...)
+
+			var stdout bytes.Buffer
+
+			err = run(args, &stdout)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("run() error = %v, expected %v", err, tt.wantErr)
+			}
+
+			if stdout.String() != tt.want {
+				t.Fatalf("run() wrote %q, expected %q", stdout.String(), tt.want)
+			}
+
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("failed to re-read the temp keymap: %v", err)
+			}
+
+			// Anything that did not print a change must not have touched the file
+			if tt.want == "" && !bytes.Equal(before, after) {
+				t.Fatalf("the keymap was modified despite no change being reported")
+			}
+
+			if tt.wantErr != nil || tt.want == "" {
+				return
+			}
+
+			// The edit is readable back, and the custom code is still there
+			keymap, err := readKeymap("", fixtureKeyboard, fixtureName, path)
+			if err != nil {
+				t.Fatalf("the written keymap could not be read back: %v", err)
+			}
+
+			layer, index := 0, 0
+			if tt.args[0] == "1" {
+				layer = 1
+			}
+
+			if keymap.Layers[layer][index] != tt.args[2] {
+				t.Fatalf("layers[%d][%d] = %q, expected %q", layer, index, keymap.Layers[layer][index], tt.args[2])
+			}
+
+			for _, want := range []string{"#define DUAL_FUNC_0", "RGB_SLD", "chordal_hold_layout"} {
+				if !bytes.Contains(after, []byte(want)) {
+					t.Fatalf("custom code was lost: %s", want)
+				}
+			}
+		})
+	}
+}
+
+// The file mode survives the temp-file-and-rename dance.
+func TestSetPreservesMode(t *testing.T) {
+	path := tempKeymap(t)
+
+	if err := os.Chmod(path, 0o640); err != nil {
+		t.Fatalf("chmod failed: %v", err)
+	}
+
+	args := []string{"set", "-keyboard", fixtureKeyboard, "-keymap", fixtureName, "-file", path, "0", "0", "KC_GRAVE"}
+
+	if err := run(args, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+
+	if info.Mode().Perm() != 0o640 {
+		t.Fatalf("mode = %v, expected 0640", info.Mode().Perm())
+	}
+}
+
+// A keymap.c reached through a symlink is written where it really lives.
+func TestSetFollowsSymlinks(t *testing.T) {
+	real := tempKeymap(t)
+	link := filepath.Join(t.TempDir(), "link.c")
+
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatalf("symlink failed: %v", err)
+	}
+
+	args := []string{"set", "-keyboard", fixtureKeyboard, "-keymap", fixtureName, "-file", link, "0", "0", "KC_GRAVE"}
+
+	if err := run(args, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("lstat failed: %v", err)
+	}
+
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("the symlink was replaced with a regular file")
+	}
+
+	keymap, err := readKeymap("", fixtureKeyboard, fixtureName, real)
+	if err != nil {
+		t.Fatalf("the real file could not be read back: %v", err)
+	}
+
+	if keymap.Layers[0][0] != "KC_GRAVE" {
+		t.Fatalf("layers[0][0] = %q, expected KC_GRAVE", keymap.Layers[0][0])
+	}
+}
+
+// The point of verifying before renaming: a splice qmk cannot parse must leave
+// the original file exactly as it was, and leave no temp file behind either.
+func TestSetRollsBackAnUnparseableWrite(t *testing.T) {
+	path := tempKeymap(t)
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read the temp keymap: %v", err)
+	}
+
+	keymap, err := readKeymap("", fixtureKeyboard, fixtureName, path)
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+
+	original := cloneLayers(keymap.Layers)
+
+	// A layout name carrying an unbalanced paren renders C that cannot parse
+	keymap.Layout = "LAYOUT_moonlander("
+	keymap.Layers[0][0] = "KC_GRAVE"
+
+	err = writeKeymap("", fixtureKeyboard, fixtureName, path, keymap, original, 0, 0)
+	if err == nil {
+		t.Fatalf("an unparseable write was accepted")
+	}
+
+	t.Logf("rejected with: %v", err)
+
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to re-read the temp keymap: %v", err)
+	}
+
+	if !bytes.Equal(before, after) {
+		t.Fatalf("the original keymap was modified by a failed write")
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatalf("failed to list the directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if strings.Contains(entry.Name(), ".mappy-") {
+			t.Fatalf("a temp file was left behind: %s", entry.Name())
+		}
+	}
+}
