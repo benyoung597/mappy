@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -21,7 +22,7 @@ var (
 const usage = `usage: mappy <command> [flags] [args]
 
 commands:
-  get [layer [index]]   print the keycodes in a keymap.c
+  get [-json] [layer [index]]   print the keycodes in a keymap.c
   help                  print this message
 
 run "mappy <command> -h" for the flags a command takes`
@@ -61,6 +62,7 @@ func get(args []string, stdout io.Writer) error {
 	// c2json does not validate this, it copies it into its "keymap" field.
 	name := flags.String("keymap", "default", "keymap name to report")
 	path := flags.String("file", "", "path to the keymap.c to read")
+	asJSON := flags.Bool("json", false, "print JSON rather than text")
 
 	if err := flags.Parse(args); err != nil {
 		// -h is a request, not a failure: Parse has already printed the usage
@@ -84,48 +86,74 @@ func get(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	return printKeymap(stdout, keymap, flags.Args())
+	return printKeymap(stdout, keymap, flags.Args(), *asJSON)
 }
 
 // Prints every layer, one layer, or a single keycode, depending on how many
 // positional arguments are given. The bare single-keycode form is the one
-// worth scripting against.
-func printKeymap(w io.Writer, keymap keymapJSON, args []string) error {
-	if len(args) > 2 {
-		return fmt.Errorf("%w: get takes at most a layer and an index", errTooManyArgs)
+// worth scripting against; -json is the same selection, encoded for jq.
+func printKeymap(w io.Writer, keymap keymapJSON, args []string, asJSON bool) error {
+	selected, err := selectKeymap(keymap, args)
+	if err != nil {
+		return err
 	}
 
-	if len(args) == 0 {
-		for i := range keymap.Layers {
+	if asJSON {
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+
+		return encoder.Encode(selected)
+	}
+
+	switch value := selected.(type) {
+	case keymapJSON:
+		for i := range value.Layers {
 			if _, err := fmt.Fprintf(w, "[%d]\n", i); err != nil {
 				return err
 			}
 
-			if err := printLayer(w, keymap.Layers[i]); err != nil {
+			if err := printLayer(w, value.Layers[i]); err != nil {
 				return err
 			}
 		}
 
 		return nil
+	case []string:
+		return printLayer(w, value)
+	default:
+		_, err := fmt.Fprintln(w, value)
+
+		return err
+	}
+}
+
+// Narrows the keymap to whatever the arguments asked for: the whole thing, one
+// layer, or one keycode. Selection is kept apart from encoding so text and JSON
+// cannot drift into answering different questions.
+func selectKeymap(keymap keymapJSON, args []string) (any, error) {
+	if len(args) > 2 {
+		return nil, fmt.Errorf("%w: get takes at most a layer and an index", errTooManyArgs)
+	}
+
+	if len(args) == 0 {
+		return keymap, nil
 	}
 
 	layer, err := parseLayer(keymap, args[0])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(args) == 1 {
-		return printLayer(w, keymap.Layers[layer])
+		return keymap.Layers[layer], nil
 	}
 
 	index, err := parseIndex(keymap.Layers[layer], args[1])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = fmt.Fprintln(w, keymap.Layers[layer][index])
-
-	return err
+	return keymap.Layers[layer][index], nil
 }
 
 func printLayer(w io.Writer, layer []string) error {

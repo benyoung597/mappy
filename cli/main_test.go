@@ -18,8 +18,9 @@ var testKeymap = keymapJSON{
 
 func TestPrintKeymap(t *testing.T) {
 	tests := []struct {
-		name string
-		args []string
+		name   string
+		args   []string
+		asJSON bool
 
 		want    string
 		wantErr error
@@ -53,6 +54,51 @@ func TestPrintKeymap(t *testing.T) {
 			name: "the last layer and index are in range",
 			args: []string{"1", "2"},
 			want: "OSL(1)\n",
+		},
+		{
+			name:   "json, a single keycode is a bare string",
+			args:   []string{"0", "1"},
+			asJSON: true,
+			want:   "\"MT(MOD_LGUI, KC_A)\"\n",
+		},
+		{
+			name:   "json, a layer is an array",
+			args:   []string{"1"},
+			asJSON: true,
+			want: "[\n" +
+				"  \"KC_TRANSPARENT\",\n" +
+				"  \"KC_LCBR\",\n" +
+				"  \"OSL(1)\"\n" +
+				"]\n",
+		},
+		{
+			// the c2json shape, so `mappy get -json | qmk json2c` stays possible
+			name:   "json, no arguments is the whole keymap",
+			args:   nil,
+			asJSON: true,
+			want: "{\n" +
+				"  \"keyboard\": \"zsa/moonlander/reva\",\n" +
+				"  \"keymap\": \"vimster\",\n" +
+				"  \"layout\": \"LAYOUT_moonlander\",\n" +
+				"  \"layers\": [\n" +
+				"    [\n" +
+				"      \"KC_ESCAPE\",\n" +
+				"      \"MT(MOD_LGUI, KC_A)\",\n" +
+				"      \"DUAL_FUNC_0\"\n" +
+				"    ],\n" +
+				"    [\n" +
+				"      \"KC_TRANSPARENT\",\n" +
+				"      \"KC_LCBR\",\n" +
+				"      \"OSL(1)\"\n" +
+				"    ]\n" +
+				"  ]\n" +
+				"}\n",
+		},
+		{
+			name:    "json rejects the same arguments as text",
+			args:    []string{"9"},
+			asJSON:  true,
+			wantErr: errLayerRange,
 		},
 		{
 			name:    "layer past the end",
@@ -90,7 +136,7 @@ func TestPrintKeymap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var got bytes.Buffer
 
-			err := printKeymap(&got, testKeymap, tt.args)
+			err := printKeymap(&got, testKeymap, tt.args, tt.asJSON)
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("printKeymap() error = %v, expected %v", err, tt.wantErr)
@@ -126,7 +172,7 @@ func TestPrintKeymapErrorsNameTheRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := printKeymap(&bytes.Buffer{}, testKeymap, tt.args)
+			err := printKeymap(&bytes.Buffer{}, testKeymap, tt.args, false)
 
 			if err == nil || err.Error() != tt.want {
 				t.Fatalf("printKeymap() error = %v, expected %q", err, tt.want)
