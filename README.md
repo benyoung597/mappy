@@ -1,4 +1,10 @@
-# omarchy-mappy
+# Mappy
+
+[![status](https://img.shields.io/badge/status-working%2C%20one%20keyboard-brightgreen?style=flat-square)](#)
+[![go](https://img.shields.io/badge/go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![platform](https://img.shields.io/badge/platform-linux-333333?style=flat-square&logo=linux&logoColor=white)](#)
+[![qmk](https://img.shields.io/badge/qmk-zsa%20fork-ff6600?style=flat-square)](https://github.com/zsa/qmk_firmware)
+[![tested on](https://img.shields.io/badge/tested%20on-moonlander%20mk%20I%20rev%20A-6b46c1?style=flat-square)](#)
 
 Remap a QMK keyboard without opening a browser.
 
@@ -6,7 +12,7 @@ ZSA's Oryx is a good web editor, but changing one key means logging into a
 website, dragging it around, and flashing through their GUI. The layout is
 open source and the toolchain is local — none of that needs a browser.
 
-mappy is a CLI that reads a keymap, edits it, compiles it, and flashes it,
+Mappy is a CLI that reads a keymap, edits it, compiles it, and flashes it,
 plus (eventually) an Omarchy 4 shell overlay that draws the board and drives
 the CLI.
 
