@@ -105,6 +105,11 @@ lost.
   layers. If the heatmap gets built, the HID route is the one that works, and
   the firmware side of it is already enabled.
 
+## Contributing
+
+Conventional commits, work from `development`, and releases come out of
+release-please. [`CONTRIBUTING.md`](CONTRIBUTING.md) has the details.
+
 ## License
 
 [MIT](LICENSE).
