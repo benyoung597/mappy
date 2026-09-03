@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -129,5 +130,59 @@ func TestReadEditSpliceRoundTrip(t *testing.T) {
 
 	if !reflect.DeepEqual(keymap.Layers, reread.Layers) {
 		t.Fatalf("layers changed beyond the edited key")
+	}
+}
+
+// get is the whole reader path with a terminal on the end of it.
+func TestGetCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+
+		want    string
+		wantErr string
+	}{
+		{
+			name: "a single keycode",
+			args: []string{"0", "40"},
+			want: "DUAL_FUNC_0\n",
+		},
+		{
+			name:    "keyboard is required",
+			args:    nil,
+			wantErr: "-keyboard is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := []string{"get"}
+
+			if tt.wantErr == "" {
+				args = append(args, "-keyboard", fixtureKeyboard, "-keymap", fixtureName, "-file", fixtureKeymap)
+			}
+
+			args = append(args, tt.args...)
+
+			var stdout bytes.Buffer
+
+			err := run(args, &stdout)
+
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("run() error = %v, expected %q", err, tt.wantErr)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("run() error = %v", err)
+			}
+
+			if stdout.String() != tt.want {
+				t.Fatalf("run() wrote %q, expected %q", stdout.String(), tt.want)
+			}
+		})
 	}
 }
