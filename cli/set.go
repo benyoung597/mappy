@@ -18,6 +18,7 @@ var (
 	errKeycodeParens   = errors.New("keycode has unbalanced parentheses")
 	errVerifyKeycode   = errors.New("written keymap does not hold the new keycode")
 	errVerifyUnrelated = errors.New("written keymap changed more than the one keycode")
+	errKeycodeMismatch = errors.New("keymap.c does not hold the keycode c2json reported")
 )
 
 func set(args []string, stdout io.Writer) error {
@@ -96,19 +97,32 @@ func set(args []string, stdout io.Writer) error {
 	return err
 }
 
-// Splices the edited layers into the file, then reads the result back through
-// c2json before it replaces the original. A splice that produces a keymap.c
-// qmk cannot parse never reaches the real file.
+// Replaces the one keycode in place, then reads the result back through c2json
+// before it replaces the original. A write that qmk cannot parse never reaches
+// the real file.
+//
+// Only that keycode's bytes change, so Oryx's column padding survives and a one
+// key edit stays a one line diff. renderKeymaps rewrites the whole array and is
+// what a bulk write would use.
 func writeKeymap(qmkHome, keyboard, name, target string, keymap keymapJSON, before [][]string, layer, index int) error {
 	src, err := os.ReadFile(target)
 	if err != nil {
 		return err
 	}
 
-	out, err := spliceKeymaps(src, renderKeymaps(keymap.Layout, keymap.Layers))
+	start, end, err := findKeycodeSpan(src, layer, index)
 	if err != nil {
 		return err
 	}
+
+	// The bytes in the file must be the keycode c2json reported, or the array
+	// is not laid out the way this edit assumes.
+	if got := string(src[start:end]); got != before[layer][index] {
+		return fmt.Errorf("%w: layer %d index %d reads %q in the file, c2json reported %q",
+			errKeycodeMismatch, layer, index, got, before[layer][index])
+	}
+
+	out := replaceKeycode(src, start, end, keymap.Layers[layer][index])
 
 	info, err := os.Stat(target)
 	if err != nil {

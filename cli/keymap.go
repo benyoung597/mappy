@@ -164,3 +164,152 @@ func spliceKeymaps(src, body []byte) ([]byte, error) {
 
 	return out, nil
 }
+
+var (
+	errLayerSpanNotFound   = errors.New("layer not found in keymaps array")
+	errKeycodeSpanNotFound = errors.New("keycode not found in layer")
+)
+
+// Locates a single keycode inside the keymaps[] array and returns its byte
+// range, so one key can be replaced without rewriting the array. That keeps
+// Oryx's column padding, and a one keycode edit to a one line diff.
+//
+// Layers are the parenthesised groups at paren depth zero - the LAYOUT_ calls.
+// Keycodes are their comma separated arguments, also at depth zero, which is
+// what keeps MT(MOD_LGUI, KC_A) one argument rather than two.
+func findKeycodeSpan(src []byte, layer, index int) (start, end int, err error) {
+	spanStart, spanEnd, err := findKeymapsSpan(src)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	array := src[spanStart:spanEnd]
+
+	argsStart, argsEnd, err := findLayerArgs(array, layer)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	tokenStart, tokenEnd, err := findArgument(array[argsStart:argsEnd], index)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return spanStart + argsStart + tokenStart, spanStart + argsStart + tokenEnd, nil
+}
+
+func findLayerArgs(array []byte, layer int) (start, end int, err error) {
+	depth := 0
+	open := 0
+	found := 0
+
+	for i := 0; i < len(array); i++ {
+		switch array[i] {
+		case '(':
+			if depth == 0 {
+				open = i + 1
+			}
+
+			depth++
+		case ')':
+			depth--
+
+			if depth == 0 {
+				if found == layer {
+					return open, i, nil
+				}
+
+				found++
+			}
+		}
+	}
+
+	return 0, 0, fmt.Errorf("%w: layer %d, found %d", errLayerSpanNotFound, layer, found)
+}
+
+func findArgument(args []byte, index int) (start, end int, err error) {
+	depth := 0
+	token := 0
+	found := 0
+
+	for i := 0; i <= len(args); i++ {
+		if i == len(args) || (args[i] == ',' && depth == 0) {
+			if found == index {
+				return trimSpan(args, token, i)
+			}
+
+			found++
+			token = i + 1
+
+			continue
+		}
+
+		switch args[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		}
+	}
+
+	return 0, 0, fmt.Errorf("%w: index %d, found %d", errKeycodeSpanNotFound, index, found)
+}
+
+// Narrows start and end onto the token itself, dropping the whitespace and
+// newlines Oryx pads its columns with.
+func trimSpan(args []byte, start, end int) (int, int, error) {
+	for start < end && isSpace(args[start]) {
+		start++
+	}
+
+	for end > start && isSpace(args[end-1]) {
+		end--
+	}
+
+	if start == end {
+		return 0, 0, errKeycodeSpanNotFound
+	}
+
+	return start, end, nil
+}
+
+func isSpace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+}
+
+// Replaces the keycode at start:end, absorbing the length change into the run
+// of padding that follows it so the rest of the row stays in its column. A
+// keycode with no padding after it - last on a line, or last in a layer - just
+// moves what follows.
+func replaceKeycode(src []byte, start, end int, keycode string) []byte {
+	tail := end
+
+	if tail < len(src) && src[tail] == ',' {
+		tail++
+	}
+
+	spaces := 0
+
+	for tail+spaces < len(src) && src[tail+spaces] == ' ' {
+		spaces++
+	}
+
+	padding := spaces
+
+	if spaces > 0 {
+		padding = spaces - (len(keycode) - (end - start))
+
+		if padding < 1 {
+			padding = 1
+		}
+	}
+
+	out := make([]byte, 0, len(src)+len(keycode))
+	out = append(out, src[:start]...)
+	out = append(out, keycode...)
+	out = append(out, src[end:tail]...)
+	out = append(out, strings.Repeat(" ", padding)...)
+	out = append(out, src[tail+spaces:]...)
+
+	return out
+}

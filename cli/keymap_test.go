@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -275,5 +276,137 @@ func TestSpliceKeymapsPreservesCustomCode(t *testing.T) {
 
 	if !bytes.Equal(out, second) {
 		t.Fatalf("splicing the same body twice did not produce identical bytes")
+	}
+}
+
+func TestFindKeycodeSpan(t *testing.T) {
+	// Padded the way Oryx pads, so the trimming is exercised
+	src := []byte("x\nconst uint16_t PROGMEM keymaps[][1][1] = {\n" +
+		"  [0] = LAYOUT_x(\n" +
+		"    KC_ESCAPE,      MT(MOD_LGUI, KC_A),KC_F11,\n" +
+		"    OSL(1)\n" +
+		"  ),\n" +
+		"  [1] = LAYOUT_x(\n" +
+		"    KC_TRANSPARENT, LT(3, LGUI(KC_X)),\n" +
+		"    KC_LCBR\n" +
+		"  ),\n" +
+		"};\n")
+
+	tests := []struct {
+		name  string
+		layer int
+		index int
+
+		want    string
+		wantErr error
+	}{
+		{
+			name: "first keycode of the first layer",
+			want: "KC_ESCAPE",
+		},
+		{
+			// the comma inside is why arguments are split at paren depth zero
+			name:  "a mod tap counts as one argument",
+			index: 1,
+			want:  "MT(MOD_LGUI, KC_A)",
+		},
+		{
+			name:  "the keycode after a mod tap",
+			index: 2,
+			want:  "KC_F11",
+		},
+		{
+			name:  "last keycode of a layer, no trailing comma",
+			index: 3,
+			want:  "OSL(1)",
+		},
+		{
+			name:  "the second layer is a separate paren group",
+			layer: 1,
+			want:  "KC_TRANSPARENT",
+		},
+		{
+			name:  "nested calls count as one argument",
+			layer: 1,
+			index: 1,
+			want:  "LT(3, LGUI(KC_X))",
+		},
+		{
+			name:    "layer past the end",
+			layer:   2,
+			wantErr: errLayerSpanNotFound,
+		},
+		{
+			name:    "index past the end",
+			index:   4,
+			wantErr: errKeycodeSpanNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end, err := findKeycodeSpan(src, tt.layer, tt.index)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("findKeycodeSpan() error = %v, expected %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr != nil {
+				return
+			}
+
+			if got := string(src[start:end]); got != tt.want {
+				t.Fatalf("findKeycodeSpan() spans %q, expected %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReplaceKeycode(t *testing.T) {
+	tests := []struct {
+		name    string
+		src     string
+		keycode string
+
+		want string
+	}{
+		{
+			// shorter keycode, so the padding grows to hold the column
+			name:    "padding absorbs a shorter keycode",
+			src:     "    KC_ESCAPE,      KC_1,\n",
+			keycode: "KC_A",
+			want:    "    KC_A,           KC_1,\n",
+		},
+		{
+			name:    "padding absorbs a longer keycode",
+			src:     "    KC_ESCAPE,      KC_1,\n",
+			keycode: "MT(MOD_LGUI, KC_A)",
+			want:    "    MT(MOD_LGUI, KC_A), KC_1,\n",
+		},
+		{
+			// no padding to give, so the row simply moves
+			name:    "no padding to absorb",
+			src:     "    KC_ESCAPE,\n",
+			keycode: "KC_A",
+			want:    "    KC_A,\n",
+		},
+		{
+			name:    "last keycode of a layer has no comma",
+			src:     "    KC_ESCAPE\n  ),",
+			keycode: "KC_A",
+			want:    "    KC_A\n  ),",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start := strings.Index(tt.src, "KC_ESCAPE")
+
+			got := replaceKeycode([]byte(tt.src), start, start+len("KC_ESCAPE"), tt.keycode)
+
+			if string(got) != tt.want {
+				t.Fatalf("replaceKeycode() = %q, expected %q", string(got), tt.want)
+			}
+		})
 	}
 }

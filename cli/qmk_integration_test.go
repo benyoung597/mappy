@@ -387,9 +387,9 @@ func TestSetRollsBackAnUnparseableWrite(t *testing.T) {
 
 	original := cloneLayers(keymap.Layers)
 
-	// A layout name carrying an unbalanced paren renders C that cannot parse
-	keymap.Layout = "LAYOUT_moonlander("
-	keymap.Layers[0][0] = "KC_GRAVE"
+	// A brace closes the array early. validateKeycode only guards parens, so
+	// this gets past it and the verify step is the thing that has to catch it.
+	keymap.Layers[0][0] = "KC_GRAVE}"
 
 	err = writeKeymap("", fixtureKeyboard, fixtureName, path, keymap, original, 0, 0)
 	if err == nil {
@@ -416,5 +416,50 @@ func TestSetRollsBackAnUnparseableWrite(t *testing.T) {
 		if strings.Contains(entry.Name(), ".mappy-") {
 			t.Fatalf("a temp file was left behind: %s", entry.Name())
 		}
+	}
+}
+
+// The reason set edits bytes instead of rewriting the array.
+func TestSetProducesAOneLineDiff(t *testing.T) {
+	path := tempKeymap(t)
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read the temp keymap: %v", err)
+	}
+
+	args := []string{"set", "-keyboard", fixtureKeyboard, "-keymap", fixtureName, "-file", path, "0", "0", "KC_GRAVE"}
+
+	if err := run(args, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to re-read the temp keymap: %v", err)
+	}
+
+	was := strings.Split(string(before), "\n")
+	now := strings.Split(string(after), "\n")
+
+	if len(was) != len(now) {
+		t.Fatalf("line count changed: %d -> %d", len(was), len(now))
+	}
+
+	changed := 0
+
+	for i := range was {
+		if was[i] != now[i] {
+			changed++
+		}
+	}
+
+	if changed != 1 {
+		t.Fatalf("%d lines changed, expected 1", changed)
+	}
+
+	// and the column padding is still holding the row together
+	if len(was[18]) != len(now[18]) {
+		t.Fatalf("row width changed: %d -> %d", len(was[18]), len(now[18]))
 	}
 }
