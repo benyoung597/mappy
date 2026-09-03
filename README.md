@@ -5,6 +5,7 @@
 [![platform](https://img.shields.io/badge/platform-linux-333333?style=flat-square&logo=linux&logoColor=white)](#)
 [![qmk](https://img.shields.io/badge/qmk-zsa%20fork-ff6600?style=flat-square)](https://github.com/zsa/qmk_firmware)
 [![tested on](https://img.shields.io/badge/tested%20on-moonlander%20mk%20I%20rev%20A-6b46c1?style=flat-square)](#)
+[![license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 Remap a QMK keyboard without opening a browser.
 
@@ -103,3 +104,7 @@ lost.
   enough to colour a key on a diagram when the same keycode appears on three
   layers. If the heatmap gets built, the HID route is the one that works, and
   the firmware side of it is already enabled.
+
+## License
+
+[MIT](LICENSE).
