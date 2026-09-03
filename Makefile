@@ -12,6 +12,12 @@ unit-test:
 integration-test:
 	go test -v -tags integration ./...
 
+# Adds the tests that build real firmware. Needs the arm toolchain and a keymap
+# in the userspace, and a cold build takes minutes, which is why it is not part
+# of integration-test. Runs the unit tests too, for the same reason.
+compile-test:
+	go test -v -tags compile ./...
+
 # Regenerate cli/testdata/keymap.json from keymap.c, so the two cannot drift.
 # Needs qmk and the ZSA fork; nothing in `make test` depends on it.
 testdata:

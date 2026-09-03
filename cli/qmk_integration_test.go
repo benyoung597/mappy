@@ -9,17 +9,11 @@ package main
 import (
 	"bytes"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-)
-
-const (
-	fixtureKeyboard = "zsa/moonlander/reva"
-	fixtureName     = "vimster"
 )
 
 func TestReadKeymap(t *testing.T) {
@@ -187,24 +181,6 @@ func TestGetCommand(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Copies the fixture somewhere writable so a test can edit it.
-func tempKeymap(t *testing.T) string {
-	t.Helper()
-
-	src, err := os.ReadFile(fixtureKeymap)
-	if err != nil {
-		t.Fatalf("failed to read the fixture: %v", err)
-	}
-
-	path := filepath.Join(t.TempDir(), "keymap.c")
-
-	if err := os.WriteFile(path, src, 0o644); err != nil {
-		t.Fatalf("failed to write the temp keymap: %v", err)
-	}
-
-	return path
 }
 
 func TestSetCommand(t *testing.T) {
@@ -463,65 +439,5 @@ func TestSetProducesAOneLineDiff(t *testing.T) {
 	// and the column padding is still holding the row together
 	if len(was[18]) != len(now[18]) {
 		t.Fatalf("row width changed: %d -> %d", len(was[18]), len(now[18]))
-	}
-}
-
-func TestCompileCommand(t *testing.T) {
-	userspaceKeymap := filepath.Join(
-		os.Getenv("HOME"),
-		".config/qmk-userspace/keyboards/zsa/moonlander/keymaps/vimster/keymap.c",
-	)
-
-	if _, err := os.Stat(userspaceKeymap); err != nil {
-		t.Skipf("no userspace keymap to build: %v", err)
-	}
-
-	tests := []struct {
-		name string
-		args []string
-
-		wantErr error
-	}{
-		{
-			name: "builds the keymap named by the file",
-			args: []string{"-file", userspaceKeymap},
-		},
-		{
-			name: "builds the keymap named directly",
-			args: []string{"-keymap", "vimster"},
-		},
-		{
-			// the point of deriving the name: a scratch file is not buildable
-			name:    "a file outside a keymaps directory",
-			args:    []string{"-file", "/tmp/keymap.c"},
-			wantErr: errKeymapNotInDir,
-		},
-		{
-			name:    "neither a keymap nor a file",
-			args:    nil,
-			wantErr: errNoKeymapName,
-		},
-		{
-			name:    "a keymap that does not exist",
-			args:    []string{"-keymap", "no-such-keymap"},
-			wantErr: errCompile,
-		},
-		{
-			name:    "positional arguments are refused",
-			args:    []string{"-keymap", "vimster", "0"},
-			wantErr: errTooManyArgs,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			args := append([]string{"compile", "-keyboard", fixtureKeyboard}, tt.args...)
-
-			err := run(args, io.Discard)
-
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("run() error = %v, expected %v", err, tt.wantErr)
-			}
-		})
 	}
 }
