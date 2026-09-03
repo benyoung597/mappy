@@ -1,10 +1,6 @@
 # Mappy
 
-[![status](https://img.shields.io/badge/status-working%2C%20one%20keyboard-brightgreen?style=flat-square)](#)
 [![go](https://img.shields.io/badge/go-1.27-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![platform](https://img.shields.io/badge/platform-linux-333333?style=flat-square&logo=linux&logoColor=white)](#)
-[![qmk](https://img.shields.io/badge/qmk-zsa%20fork-ff6600?style=flat-square)](https://github.com/zsa/qmk_firmware)
-[![tested on](https://img.shields.io/badge/tested%20on-moonlander%20mk%20I%20rev%20A-6b46c1?style=flat-square)](#)
 [![license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 Remap a QMK keyboard without opening a browser.
