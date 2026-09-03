@@ -12,6 +12,23 @@ Two kinds of content below, deliberately distinguished:
 Everything here was verified on Omarchy 4.0.1 (Arch) against a Moonlander
 Mark I rev A, Oryx firmware revision v25.0.
 
+## Installing
+
+Binaries for `linux/amd64` and `linux/arm64` are attached to each release, so
+the CLI needs no Go toolchain to run:
+
+```sh
+gh release download --pattern 'mappy-linux-amd64' --repo benyoung597/mappy
+chmod +x mappy-linux-amd64
+```
+
+Linux only, deliberately: the keyboard is detected by reading
+`/sys/bus/usb/devices`, so a build for another OS would be one that cannot
+find a board. Building from source is `make build`.
+
+The toolchain below is still needed for `compile` and `flash`, which shell out
+to `qmk`. `get` and `set` need only the binary.
+
 ## Verified build process
 
 ### 1. Toolchain
