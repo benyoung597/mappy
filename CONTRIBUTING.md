@@ -2,18 +2,18 @@
 
 ## Branches
 
-`development` is where work lands. `master` is the release branch — pushing to
+`development` is where work lands. `main` is the release branch — pushing to
 it is what asks release-please for a release.
 
 ```
-feature branch  --squash merge-->  development  --merge commit-->  master
+feature branch  --squash merge-->  development  --merge commit-->  main
 ```
 
-**The merge into `master` must be a merge commit, not a squash.** Squashing
+**The merge into `main` must be a merge commit, not a squash.** Squashing
 collapses every commit in the release into one, and release-please builds the
 changelog from the individual commits. Squash-and-merge is right for a PR into
 `development`, where one PR becomes one conventional commit; it is wrong for
-`development` into `master`.
+`development` into `main`.
 
 ## Commits
 
@@ -55,7 +55,7 @@ opening a PR.
 
 ## Releases
 
-Merging `development` into `master` opens a release-please PR with the
+Merging `development` into `main` opens a release-please PR with the
 changelog and version bump. Merging *that* tags the release and, if `cli`
 released, builds `linux/amd64` and `linux/arm64` binaries onto it.
 
