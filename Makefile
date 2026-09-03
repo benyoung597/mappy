@@ -18,6 +18,12 @@ integration-test:
 compile-test:
 	go test -v -tags compile ./...
 
+# Adds the tests that drive qmk flash against an attached keyboard. Nothing in
+# them writes firmware - a real flash needs someone to press the reset button -
+# so this covers argument assembly through qmk's dry run and the refusals.
+flash-test:
+	go test -v -tags flash ./...
+
 # Regenerate cli/testdata/keymap.json from keymap.c, so the two cannot drift.
 # Needs qmk and the ZSA fork; nothing in `make test` depends on it.
 testdata:
