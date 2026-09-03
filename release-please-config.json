@@ -1,13 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "dc660366cfb19c7e952d2344f321cf9959fbc741",
-  "separate-pull-requests": false,
+  "separate-pull-requests": true,
   "include-component-in-tag": true,
+  "tag-separator": "-",
   "packages": {
     "cli": {
       "release-type": "go",
       "component": "cli",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "release-as": "0.1.0"
     },
     "plugin": {
       "release-type": "simple",
