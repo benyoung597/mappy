@@ -10,9 +10,10 @@ mappy is a CLI that reads a keymap, edits it, compiles it, and flashes it,
 plus (eventually) an Omarchy 4 shell overlay that draws the board and drives
 the CLI.
 
-Status: **spike.** The build and flash round trip is verified end to end on a
-Moonlander Mark I rev A, and the read/write data model is settled. The CLI can
-locate the layout inside a `keymap.c` and nothing more yet.
+Status: **working, for one keyboard.** The full loop — read a keymap, change a
+key, build the firmware, write it to the board — runs from the terminal and is
+verified end to end on a Moonlander Mark I rev A. Only single key edits exist;
+there is no shell overlay yet.
 
 ## Layout
 
@@ -21,18 +22,44 @@ cli/     the tool — keymap data model, compile, flash.  See cli/README.md
 plugin/  Omarchy 4 shell overlay, kinds: ["overlay"].   Not started
 ```
 
+## Usage
+
+```sh
+make build   # builds ./mappy in the repo root
+K=~/.config/qmk-userspace/keyboards/zsa/moonlander/keymaps/vimster/keymap.c
+
+./mappy get -file $K 0 40          # DUAL_FUNC_0
+./mappy set -file $K 0 40 KC_F5    # 0 40: DUAL_FUNC_0 -> KC_F5
+./mappy compile -file $K
+./mappy flash -file $K
+```
+
+Keys are addressed by index, deliberately: it keeps the CLI an honest machine
+interface and pushes ergonomics into the UI where they belong. `mappy get`
+with no index prints every layer so you can find the one you want, and
+`-json` pipes it to `jq`.
+
+`-keyboard` is detected from USB, and `-keymap` comes from the path, so
+neither is usually worth typing. `mappy help` lists the rest.
+
 ## Getting started
 
-There is nothing to install yet. [`cli/README.md`](cli/README.md) documents the
-whole build and flash pipeline as verified by hand — the toolchain, ZSA's fork,
-the patch Arch needs, board revision detection, and where a layout actually
-lives. Following it gets you building firmware from source without mappy at
-all, which is the point: the tool automates a process that works on its own
-first.
+[`cli/README.md`](cli/README.md) documents the whole build and flash pipeline
+as verified by hand — the toolchain, ZSA's fork, the patch Arch needs, board
+revision detection, and where a layout actually lives. Following it gets you
+building firmware from source without mappy at all, which is the point: the
+tool automates a process that works on its own first.
+
+```sh
+make test              # no toolchain needed
+make integration-test  # + qmk c2json
+make compile-test      # + a real firmware build
+make flash-test        # + an attached keyboard, writes nothing
+```
 
 ## Design
 
-Two constraints drive most of it.
+Four decisions drive most of it.
 
 **Keyboards beyond the Moonlander are close to free.** `qmk info` returns real
 physical key coordinates for every board in QMK, so a renderer that reads
@@ -40,8 +67,19 @@ that data is generic by default rather than by effort.
 
 **The layout must be edited in place, not regenerated.** A `keymap.c` holds far
 more than the key grid — custom keycodes, RGB code, tap-hold tuning — and QMK's
-own `json2c` discards all of it. mappy replaces the byte range holding the
-`keymaps[]` array and leaves every other byte untouched.
+own `json2c` discards all of it. mappy edits bytes: `set` replaces the range
+holding one keycode, so Oryx's column padding survives and changing a key is a
+one line diff. Rewriting the whole array is a 234 line one.
+
+**Nothing is written until qmk agrees it parses.** An edit goes to a temp file
+beside the target, is read back through `c2json`, and is checked to hold the
+new keycode and nothing else before it is renamed into place. A `keymap.c`
+mappy cannot produce cleanly is a `keymap.c` you never see.
+
+**The board is asked what it is.** `reva` and `revb` are separate targets with
+different bootloaders, and cross flashing writes settings to storage the
+hardware does not have. mappy reads the USB product id from `/sys` and refuses
+to flash a target that is not the one attached.
 
 ## Planned features
 
