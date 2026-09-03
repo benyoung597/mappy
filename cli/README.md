@@ -27,6 +27,24 @@ the 8-bit AVR toolchain, and the Moonlander is ARM (STM32F303). Only the
 
 ### 2. udev rule for flashing without root
 
+While flashing, the board stops being a ZSA device and reappears as the STM32
+DFU bootloader, `0483:df11`. Nothing grants your user write access to that, so
+`dfu-util` fails with a permission error unless a rule says otherwise.
+
+**Check whether the file already exists before writing one:**
+
+```sh
+cat /etc/udev/rules.d/50-zsa.rules
+```
+
+If you have installed Keymapp or Wally, it does, and it already covers this —
+ZSA ships the same fix as `MODE:="0666"` on `0483:df11`. Leave it alone. It
+also carries the `hidraw` rules Keymapp needs to talk to the board for live
+training, and overwriting it with the minimal rule below would break that
+while appearing to work, because flashing would keep succeeding.
+
+Only if you have neither, and the file does not exist:
+
 ```sh
 sudo tee /etc/udev/rules.d/50-zsa.rules <<'RULE'
 # STM32 DFU bootloader — lets the logged-in user flash without root
@@ -35,8 +53,9 @@ RULE
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-`TAG+="uaccess"` grants access to whoever is logged in at the seat. No
-`plugdev` group, and no need for ZSA's `wally-cli` from the AUR.
+`TAG+="uaccess"` grants access to whoever is logged in at the seat, which is
+narrower than ZSA's world-writable `0666`. No `plugdev` group, and no need for
+ZSA's `wally-cli` from the AUR.
 
 ### 3. ZSA's QMK fork
 
