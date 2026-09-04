@@ -8,8 +8,7 @@
     "cli": {
       "release-type": "go",
       "component": "cli",
-      "changelog-path": "CHANGELOG.md",
-      "release-as": "0.1.0"
+      "changelog-path": "CHANGELOG.md"
     },
     "plugin": {
       "release-type": "simple",
