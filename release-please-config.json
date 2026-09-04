@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "dc660366cfb19c7e952d2344f321cf9959fbc741",
+  "include-v-in-tag": true,
   "separate-pull-requests": true,
   "include-component-in-tag": true,
   "tag-separator": "-",
@@ -8,12 +9,102 @@
     "cli": {
       "release-type": "go",
       "component": "cli",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features",
+          "hidden": false
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes",
+          "hidden": false
+        },
+        {
+          "type": "perf",
+          "section": "Performance",
+          "hidden": false
+        },
+        {
+          "type": "refactor",
+          "section": "Refactoring",
+          "hidden": false
+        },
+        {
+          "type": "docs",
+          "section": "Documentation",
+          "hidden": false,
+          "bump": false
+        },
+        {
+          "type": "build",
+          "section": "Build System",
+          "hidden": false,
+          "bump": false
+        },
+        {
+          "type": "ci",
+          "section": "CI",
+          "hidden": false,
+          "bump": false
+        },
+        {
+          "type": "deps",
+          "section": "Dependencies",
+          "hidden": false
+        },
+        {
+          "type": "test",
+          "section": "Tests",
+          "hidden": false,
+          "bump": false
+        },
+        {
+          "type": "style",
+          "section": "Style",
+          "hidden": true,
+          "bump": false
+        },
+        {
+          "type": "chore",
+          "section": "Chore",
+          "hidden": false,
+          "bump": false
+        }
+      ]
     },
     "plugin": {
       "release-type": "simple",
       "component": "plugin",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features",
+          "hidden": false
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes",
+          "hidden": false
+        },
+        {
+          "type": "perf",
+          "section": "Performance",
+          "hidden": false
+        },
+        {
+          "type": "refactor",
+          "section": "Refactoring",
+          "hidden": false
+        },
+        {
+          "type": "deps",
+          "section": "Dependencies",
+          "hidden": false
+        }
+      ]
     }
   }
 }
