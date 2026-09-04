@@ -43,15 +43,37 @@ changelog rather than a misleading one.
 ## Tests
 
 ```sh
-make test              # no toolchain needed - what CI runs
+make lint              # gofmt + go vet
+make test              # no toolchain needed
 make integration-test  # + qmk c2json
 make compile-test      # + a real firmware build
 make flash-test        # + an attached keyboard, writes nothing
 ```
 
-CI runs `make test` only. The others need `qmk`, an ARM toolchain, or hardware,
-none of which a runner has. Run the tier that covers what you changed before
-opening a PR.
+## Signing off
+
+There is no GitHub Actions job running the tests. Three of the four tiers
+cannot run on a hosted runner — `integration` needs `qmk` and ZSA's fork,
+`compile` needs the ARM toolchain, `flash` needs a keyboard attached — so a
+runner could only ever have enforced the first one.
+
+Instead the checks run here and the results are posted to GitHub as commit
+statuses, which branch protection gates on:
+
+```sh
+make signoff           # runs lint, unit, integration, compile and posts each
+./scripts/signoff.sh --dry-run   # preview the statuses, run nothing
+```
+
+It signs off on committed, pushed code only. A green status has to describe
+the tree that is actually on the PR, so it refuses on a dirty working tree or
+a commit that is not on a remote branch.
+
+Every check runs even after one fails, so the PR shows which is red rather
+than stopping at the first. `flash` is not signed: its tests write no firmware
+but do need a board plugged in, and a red status because the keyboard is
+unplugged says nothing about the change. Run `make flash-test` by hand when
+touching flashing.
 
 ## Releases
 

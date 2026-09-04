@@ -1,6 +1,21 @@
 build:
 	go build -o mappy ./cli
 
+# gofmt is a check here, not a rewrite: signoff must fail on unformatted code
+# rather than quietly fixing it and signing off on something else.
+lint:
+	@unformatted=$$(gofmt -l .); \
+	if [ -n "$$unformatted" ]; then \
+		echo "not gofmt'd:"; echo "$$unformatted"; exit 1; \
+	fi
+	go vet ./...
+
+# Run the checks locally and post the results to GitHub as commit statuses,
+# replacing the per-PR test job. flash-test is not signed: it needs a board
+# attached, and a red status for an unplugged keyboard says nothing.
+signoff:
+	./scripts/signoff.sh
+
 # The default: no qmk, no firmware tree, no keyboard needed.
 test: unit-test
 
