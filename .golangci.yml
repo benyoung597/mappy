@@ -1,0 +1,42 @@
+version: "2"
+
+linters:
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # Only report what a branch introduces. main is the release branch, so this
+  # is the diff a PR is actually asking to merge.
+  new-from-rev: origin/main
+
+formatters:
+  enable:
+    - gofmt
+    - gci
+  settings:
+    gci:
+      # stdlib -> third-party -> internal. gci groups imports without forcing
+      # explicit aliases for packages whose name differs from their directory,
+      # which goimports does. Nothing in mappy imports itself yet - the cli is
+      # one package - so the prefix section is here for when that changes.
+      sections:
+        - standard
+        - default
+        - prefix(github.com/benyoung597/mappy)
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

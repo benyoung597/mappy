@@ -1,14 +1,12 @@
 build:
 	go build -o mappy ./cli
 
-# gofmt is a check here, not a rewrite: signoff must fail on unformatted code
-# rather than quietly fixing it and signing off on something else.
+# Checks, never rewrites: signoff must fail on unformatted code rather than
+# quietly fixing it and signing off on a tree different from the one pushed.
+# `golangci-lint fmt` (no --diff) applies the formatting instead.
 lint:
-	@unformatted=$$(gofmt -l .); \
-	if [ -n "$$unformatted" ]; then \
-		echo "not gofmt'd:"; echo "$$unformatted"; exit 1; \
-	fi
-	go vet ./...
+	golangci-lint fmt --diff
+	golangci-lint run ./...
 
 # Run the checks locally and post the results to GitHub as commit statuses,
 # replacing the per-PR test job. flash-test is not signed: it needs a board

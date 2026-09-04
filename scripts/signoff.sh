@@ -12,8 +12,8 @@
 # of them run regardless of earlier failures, so the PR shows exactly which
 # check is red. Exits non-zero if any failed.
 #
-# Requires: gh (authenticated), a Go toolchain, qmk with ZSA's fork, and the
-# arm-none-eabi toolchain. Pass --dry-run to preview the statuses without
+# Requires: gh (authenticated), a Go toolchain, the pinned golangci-lint (mise
+# install), qmk with ZSA's fork, and the arm-none-eabi toolchain. Pass --dry-run to preview the statuses without
 # running the checks or posting anything.
 #
 # flash is deliberately not signed. Its tests write no firmware, but they need

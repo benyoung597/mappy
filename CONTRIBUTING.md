@@ -43,12 +43,19 @@ changelog rather than a misleading one.
 ## Tests
 
 ```sh
-make lint              # gofmt + go vet
+make lint              # golangci-lint: formatting and linters, checks only
 make test              # no toolchain needed
 make integration-test  # + qmk c2json
 make compile-test      # + a real firmware build
 make flash-test        # + an attached keyboard, writes nothing
 ```
+
+`make lint` reports rather than rewrites. `golangci-lint fmt` applies the
+formatting when you want it applied. Tool versions are pinned in `mise.toml`,
+so `mise install` gets the same golangci-lint that signoff runs.
+
+`new-from-rev: origin/main` means only what your branch introduces is
+reported, so a pre-existing finding does not block an unrelated change.
 
 ## Signing off
 
