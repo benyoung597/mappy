@@ -1,61 +1,83 @@
-name: release
+name: Release Please
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - release/**
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: Target branch for release-please run
+        required: true
+        default: main
+        type: string
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   release-please:
+    name: Release Please
     runs-on: ubuntu-latest
-    outputs:
-      cli_released: ${{ steps.release.outputs['cli--release_created'] }}
-      cli_tag: ${{ steps.release.outputs['cli--tag_name'] }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - name: Resolve target branch
+        id: branch
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.target_branch }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Release Please
         id: release
+        uses: googleapis/release-please-action@v4
         with:
-          # The action defaults this to the repository default branch, which is
-          # development. Releases come from main, so it has to be explicit.
-          target-branch: main
+          # A PAT is preferred: pull requests opened with GITHUB_TOKEN do not
+          # trigger other workflows. The build below runs in this same job, so
+          # the fallback keeps things working until the secret exists.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          target-branch: ${{ steps.branch.outputs.name }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Runs in the same workflow as release-please, on the push that merging its
-  # PR produces, so GITHUB_TOKEN is enough. A separate workflow would not fire:
-  # events raised by GITHUB_TOKEN do not trigger further workflows.
-  binaries:
-    needs: release-please
-    if: needs.release-please.outputs.cli_released == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    strategy:
-      matrix:
-        goarch: [amd64, arm64]
-    steps:
-      - uses: actions/checkout@v4
+      # Attach binaries to a cli release so the tool can be run without a Go
+      # toolchain. Manifest mode namespaces its outputs by package path, so
+      # this gates on cli specifically - a plugin release must not trigger a
+      # CLI build.
+      - name: Checkout released tag
+        if: ${{ steps.release.outputs['cli--release_created'] }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs['cli--tag_name'] }}
 
-      - uses: actions/setup-go@v5
+      - name: Setup Go
+        if: ${{ steps.release.outputs['cli--release_created'] }}
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
 
-      # linux only: detection reads /sys/bus/usb/devices, so a darwin or
-      # windows build would be a binary that cannot find a keyboard.
-      - name: build
-        env:
-          GOOS: linux
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
+      # linux only: the keyboard is detected by reading /sys/bus/usb/devices,
+      # so a build for another OS would be one that cannot find a board.
+      - name: Build binaries
+        if: ${{ steps.release.outputs['cli--release_created'] }}
         run: |
-          go build -trimpath -ldflags "-s -w" -o mappy-linux-${{ matrix.goarch }} ./cli
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH="$arch" CGO_ENABLED=0 \
+              go build -trimpath -ldflags "-s -w" -o "mappy-linux-$arch" ./cli
+          done
 
-      - name: upload
+      - name: Attach binaries to release
+        if: ${{ steps.release.outputs['cli--release_created'] }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.release-please.outputs.cli_tag }}" \
-            "mappy-linux-${{ matrix.goarch }}" --clobber
+          gh release upload "${{ steps.release.outputs['cli--tag_name'] }}" \
+            mappy-linux-amd64 mappy-linux-arm64 --clobber
