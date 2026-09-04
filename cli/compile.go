@@ -106,7 +106,7 @@ func runCompile(qmkHome, keyboard, keymap string, clean bool, parallel int, stdo
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%w: %s %s: %w", errCompile, keyboard, keymap, err)
+		return withPatchHint(qmkHome, fmt.Errorf("%w: %s %s: %w", errCompile, keyboard, keymap, err))
 	}
 
 	return nil

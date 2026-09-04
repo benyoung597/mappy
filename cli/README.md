@@ -93,8 +93,7 @@ git clone --branch firmware25 --recurse-submodules \
 
 ZSA's build servers use GCC 12 (visible in the Oryx `build.log`); Arch ships
 16.2.0. The exact version where this starts failing is not known — only 16.2.0
-was tested. `keyboards/zsa/moonlander/moonlander.c`
-fails to assemble:
+was tested. The tree fails to assemble:
 
 ```
 Error: Thumb encoding does not support an immediate here -- `msr msp,[r3]'
@@ -105,19 +104,32 @@ including memory), but `msr` only accepts a register. GCC 12 happened to pick a
 register; GCC 16 picks memory. The constraint was always wrong.
 
 ```sh
-cd ~/qmk_zsa
-sed -i '495s/"g"/"r"/' keyboards/zsa/moonlander/moonlander.c
+mappy patch -qmk-home ~/qmk_zsa
 ```
 
-Line 495 on branch `firmware25`:
+It searches `keyboards/zsa/` for the broken constraint and rewrites it to
+`"r"`. Safe to run repeatedly — an already-fixed file does not match, so a
+second run reports `nothing to patch`, and an upstream fix makes it find
+nothing at all. `-n` lists what it would change without writing.
 
-```c
-__asm__ volatile("msr msp, %0" ::"r"(*(volatile uint32_t *)APP_ADDRESS));
+**It is not one file.** ZSA repeated the idiom, and as of `firmware25` it
+appears in two:
+
+```
+keyboards/zsa/moonlander/moonlander.c
+keyboards/zsa/ergodox_ez/stm32/stm32.c
 ```
 
-**Design note.** This hits every Arch user building ZSA firmware, so mappy must
-carry it as a patch — it lives in a tree we do not own and vanishes on
-re-clone. Not yet reported upstream.
+Which is why the fix matches the string rather than a file and line: line
+numbers move between firmware branches, and a hardcoded one would silently
+patch the wrong line or nothing.
+
+The patch has to be reapplied after re-cloning or checking out a different
+firmware branch, since it lives in a tree we do not own. A failed `mappy
+compile` or `mappy flash` checks for it and says so rather than leaving you
+with a wall of assembler errors.
+
+Not yet reported upstream.
 
 ### 5. Keep the layout in an external userspace
 

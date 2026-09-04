@@ -26,6 +26,7 @@ commands:
   set <layer> <index> <keycode> replace one keycode in a keymap.c
   compile                       build the firmware for a keymap
   flash                         build and write the firmware to the keyboard
+  patch                         fix the ZSA tree so a modern GCC can build it
   help                          print this message
 
 run "mappy <command> -h" for the flags a command takes`
@@ -51,6 +52,8 @@ func run(args []string, stdout io.Writer) error {
 		return compile(args[1:], stdout)
 	case "flash":
 		return flashCmd(args[1:], stdout)
+	case "patch":
+		return patch(args[1:], stdout)
 	case "help", "-h", "--help":
 		_, err := fmt.Fprintln(stdout, usage)
 

@@ -132,7 +132,7 @@ func runFlash(qmkHome, keyboard, keymap string, clean bool, parallel int, dryRun
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%w: %s %s: %w", errFlash, keyboard, keymap, err)
+		return withPatchHint(qmkHome, fmt.Errorf("%w: %s %s: %w", errFlash, keyboard, keymap, err))
 	}
 
 	return nil
