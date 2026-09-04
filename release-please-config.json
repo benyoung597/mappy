@@ -100,45 +100,9 @@
           "hidden": false
         },
         {
-          "type": "docs",
-          "section": "Documentation",
-          "hidden": false,
-          "bump": false
-        },
-        {
-          "type": "build",
-          "section": "Build System",
-          "hidden": false,
-          "bump": false
-        },
-        {
-          "type": "ci",
-          "section": "CI",
-          "hidden": false,
-          "bump": false
-        },
-        {
           "type": "deps",
           "section": "Dependencies",
           "hidden": false
-        },
-        {
-          "type": "test",
-          "section": "Tests",
-          "hidden": false,
-          "bump": false
-        },
-        {
-          "type": "style",
-          "section": "Style",
-          "hidden": true,
-          "bump": false
-        },
-        {
-          "type": "chore",
-          "section": "Chore",
-          "hidden": false,
-          "bump": false
         }
       ]
     }
