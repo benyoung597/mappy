@@ -39,21 +39,43 @@ fi
 
 repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
+# Fail before running anything rather than after. Posting a status needs push
+# access, and finding that out at the end means the checks ran for nothing —
+# and, worse, a run that looks green while GitHub was told nothing.
+if [ "$dry" = 0 ]; then
+  if ! gh api "repos/$repo" --jq .permissions.push | grep -qx true; then
+    echo "✗ $(gh api user --jq .login) has no push access to $repo, so statuses cannot be posted." >&2
+    echo "  gh auth switch, or set GH_TOKEN to a token for an account that does." >&2
+    exit 1
+  fi
+fi
+
 post() { # context state description
   if [ "$dry" = 1 ]; then
     echo "  [dry-run] would POST status $1=$2 to $repo@${sha:0:8}"
-    return
+    return 0
   fi
-  gh api "repos/$repo/statuses/$sha" \
-    -f state="$2" -f context="$1" -f description="$3" >/dev/null
+  # A silently dropped post is worse than a red check: the run looks signed
+  # off while GitHub knows nothing about it.
+  if ! gh api "repos/$repo/statuses/$sha" \
+    -f state="$2" -f context="$1" -f description="$3" >/dev/null; then
+    echo "  ✗ could not post $1 to GitHub" >&2
+    return 1
+  fi
 }
 
 rc=0
 sign() { # context make-target
   echo "▶ $1"
-  if [ "$dry" = 1 ]; then post "$1" success "(dry-run)"; return; fi
-  if make "$2"; then post "$1" success "signed off locally by $USER"; echo "  ✔ $1"
-  else               post "$1" failure "failed locally";          echo "  ✗ $1"; rc=1; fi
+  if [ "$dry" = 1 ]; then post "$1" success "(dry-run)" || rc=1; return; fi
+
+  if make "$2"; then
+    post "$1" success "signed off locally by $USER" && echo "  ✔ $1" || rc=1
+  else
+    post "$1" failure "failed locally" || true
+    echo "  ✗ $1"
+    rc=1
+  fi
 }
 
 sign ci/lint         lint
